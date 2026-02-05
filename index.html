@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智慧光伏电站监控系统</title>
+    <style>
+        :root {
+            --bg-dark: #06090f;
+            --card-bg: #111621;
+            --primary-blue: #00f2ff;
+            --accent-green: #2ecc71;
+            --warning-orange: #f39c12;
+            --danger-red: #e74c3c;
+            --border-color: #1e2736;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: #ffffff;
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 顶部导航 */
+        header {
+            padding: 15px 30px;
+            background: var(--card-bg);
+            border-bottom: 2px solid var(--primary-blue);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+
+        .logo { font-size: 20px; font-weight: bold; color: var(--primary-blue); letter-spacing: 2px; }
+
+        /* 主体布局 */
+        main {
+            display: grid;
+            grid-template-columns: 350px 1fr 350px;
+            gap: 20px;
+            padding: 20px;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .column {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+        }
+
+        /* 卡片通用样式 */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .card-title {
+            color: var(--primary-blue);
+            font-size: 16px;
+            margin-bottom: 15px;
+            border-left: 4px solid var(--primary-blue);
+            padding-left: 10px;
+        }
+
+        /* 1. 光伏阵列样式 */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 8px;
+        }
+
+        .panel {
+            aspect-ratio: 1;
+            border-radius: 4px;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .panel:hover { transform: translateY(-3px); box-shadow: 0 0 15px var(--primary-blue); }
+        .status-normal { background: rgba(0, 242, 255, 0.2); border-color: var(--primary-blue); color: var(--primary-blue); }
+        .status-dirty { background: rgba(243, 156, 18, 0.2); border-color: var(--warning-orange); color: var(--warning-orange); }
+        .status-error { background: rgba(231, 76, 60, 0.2); border-color: var(--danger-red); color: var(--danger-red); animation: pulse 1.5s infinite; }
+
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+        /* 2. 设备管理列表 */
+        .device-item {
+            border-bottom: 1px solid var(--border-color);
+            padding: 10px 0;
+            font-size: 13px;
+        }
+        .device-item:last-child { border: none; }
+        .device-tag { padding: 2px 6px; border-radius: 3px; font-size: 11px; margin-right: 5px; }
+        .tag-uav { background: #2980b9; }
+        .tag-car { background: #8e44ad; }
+
+        /* 3. 清洁记录表格 */
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th { text-align: left; color: #888; padding: 8px; border-bottom: 1px solid var(--border-color); }
+        td { padding: 8px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+
+        /* 4. 通知推送弹窗 */
+        #notification-toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--danger-red);
+            padding: 15px 25px;
+            border-radius: 5px;
+            display: none;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">PV-SMART MONITOR 2026</div>
+    <div id="uav-status" style="font-size: 14px;">
+        无人机: <span style="color:var(--accent-green)">在线</span> | 
+        虚拟电量: <span id="uav-battery" style="color:var(--primary-blue)">98%</span>
+    </div>
+</header>
+
+<main>
+    <div class="column">
+        <div class="card">
+            <div class="card-title">设备档案管理</div>
+            <div id="deviceList">
+                <div class="device-item">
+                    <span class="device-tag tag-uav">无人机</span> <strong>UAV-X4</strong><br>
+                    <small>启用: 2025-01-10 | 维护: 正常</small>
+                </div>
+                <div class="device-item">
+                    <span class="device-tag tag-car">清扫车</span> <strong>BOT-A1</strong><br>
+                    <small>启用: 2025-03-15 | 维护: 良好</small>
+                </div>
+                <div class="device-item">
+                    <span class="device-tag tag-car">清扫车</span> <strong>BOT-A2</strong><br>
+                    <small>启用: 2025-03-20 | 维护: 需检查</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-title">实时工作状态</div>
+            <div style="font-size: 13px; line-height: 2;">
+                小车 BOT-A1: <span style="color:var(--accent-green)">● 正在清扫</span><br>
+                小车 BOT-A2: <span style="color:var(--warning-orange)">● 充电中</span><br>
+                无人机巡检: <span style="color:var(--primary-blue)">● 飞行中</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="column" style="flex: 2;">
+        <div class="card" style="flex: 1;">
+            <div class="card-title">电站光伏阵列实时分布图 (点击色块模拟任务)</div>
+            <div class="grid-container" id="panelGrid"></div>
+        </div>
+    </div>
+
+    <div class="column">
+        <div class="card" style="flex: 1; overflow: hidden; display: flex; flex-direction: column;">
+            <div class="card-title">清洁记录/警告日志</div>
+            <div style="overflow-y: auto; flex: 1;">
+                <table>
+                    <thead>
+                        <tr><th>时间</th><th>对象</th><th>内容</th></tr>
+                    </thead>
+                    <tbody id="logTable">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</main>
+
+<div id="notification-toast">⚠️ 警告：检测到 88 号板严重故障！</div>
+
+<script>
+    const grid = document.getElementById('panelGrid');
+    const logTable = document.getElementById('logTable');
+    const uavBatteryLabel = document.getElementById('uav-battery');
+    const toast = document.getElementById('notification-toast');
+
+    // 1. 初始化光伏板
+    for (let i = 1; i <= 100; i++) {
+        const panel = document.createElement('div');
+        panel.className = 'panel';
+        panel.innerText = i;
+        
+        // 随机状态逻辑
+        if (i === 88 || i === 45) {
+            panel.classList.add('status-error');
+        } else if (i % 7 === 0) {
+            panel.classList.add('status-dirty');
+        } else {
+            panel.classList.add('status-normal');
+        }
+
+        // 点击交互
+        panel.onclick = () => handlePanelClick(i, panel);
+        grid.appendChild(panel);
+    }
+
+    // 2. 点击处理
+    function handlePanelClick(id, element) {
+        const now = new Date().toLocaleTimeString();
+        let statusText = "常规巡检";
+
+        if (element.classList.contains('status-dirty')) {
+            element.classList.remove('status-dirty');
+            element.classList.add('status-normal');
+            statusText = "已完成清洁";
+            addLog(now, `BOT-A1`, `已清洁 #${id} 板`);
+        } else if (element.classList.contains('status-error')) {
+            statusText = "发现故障";
+            showToast(`紧急：正在向负责人推送 #${id} 故障消息`);
+            addLog(now, `SYSTEM`, `#${id} 故障已推送`);
+        } else {
+            addLog(now, `UAV-X4`, `巡检 #${id} 正常`);
+        }
+    }
+
+    // 3. 记录日志函数
+    function addLog(time, device, action) {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td>${time}</td><td>${device}</td><td>${action}</td>`;
+        logTable.insertBefore(row, logTable.firstChild);
+    }
+
+    // 4. 模拟通知推送
+    function showToast(msg) {
+        toast.innerText = msg;
+        toast.style.display = 'block';
+        setTimeout(() => { toast.style.display = 'none'; }, 3000);
+    }
+
+    // 5. 模拟无人机电量下降
+    let battery = 98;
+    setInterval(() => {
+        if(battery > 10) {
+            battery -= 1;
+            uavBatteryLabel.innerText = battery + '%';
+            if(battery < 20) uavBatteryLabel.style.color = 'red';
+        }
+    }, 5000);
+
+    // 初始几条记录
+    addLog("10:00", "BOT-A1", "系统自检完成");
+    addLog("10:05", "UAV-X4", "起飞成功");
+</script>
+
+</body>
+</html>
