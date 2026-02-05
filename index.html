@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>光伏电站智慧运维管理系统</title>
+    <title>智慧光伏电站运维监控系统</title>
     <style>
         :root {
             --bg-dark: #06090f;
@@ -19,7 +19,7 @@
         body {
             background-color: var(--bg-dark);
             color: var(--text-main);
-            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            font-family: 'PingFang SC', sans-serif;
             margin: 0;
             display: flex;
             flex-direction: column;
@@ -40,14 +40,14 @@
 
         main {
             display: grid;
-            grid-template-columns: 360px 1fr 400px;
+            grid-template-columns: 350px 1fr 420px;
             gap: 15px;
             padding: 15px;
             flex: 1;
             overflow: hidden;
         }
 
-        .column { display: flex; flex-direction: column; gap: 15px; overflow: hidden; }
+        .column { display: flex; flex-direction: column; gap: 15px; height: 100%; overflow: hidden; }
 
         .card {
             background: var(--card-bg);
@@ -56,6 +56,7 @@
             padding: 15px;
             display: flex;
             flex-direction: column;
+            overflow: hidden;
         }
 
         .card-title {
@@ -63,32 +64,33 @@
             font-size: 15px;
             font-weight: bold;
             margin-bottom: 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
         }
 
-        /* 状态图例 */
+        /* 状态标注图例 */
         .legend {
             display: flex;
-            gap: 10px;
+            gap: 15px;
+            margin-bottom: 12px;
             font-size: 12px;
-            margin-bottom: 10px;
         }
-        .legend-item { display: flex; align-items: center; gap: 4px; }
-        .dot { width: 10px; height: 10px; border-radius: 2px; }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .dot { width: 12px; height: 12px; border-radius: 2px; }
 
-        /* 设备档案 */
-        .device-box {
-            background: rgba(255,255,255,0.03);
-            border-radius: 6px;
-            padding: 12px;
-            margin-bottom: 10px;
-            border-left: 4px solid var(--primary-blue);
-            font-size: 13px;
+        /* 日志滚动区域 */
+        .log-scroll-area {
+            flex: 1;
+            overflow-y: auto;
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 4px;
         }
+        
+        table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+        th { text-align: left; padding: 10px; color: #718096; position: sticky; top: 0; background: var(--card-bg); z-index: 10; border-bottom: 1px solid var(--border-color); }
+        td { padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.02); word-wrap: break-word; }
 
-        /* 光伏阵列 */
+        /* 网格面板样式 */
         .grid-wrapper {
             display: grid;
             grid-template-columns: repeat(10, 1fr);
@@ -104,95 +106,89 @@
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            transition: 0.2s;
             background: rgba(255,255,255,0.05);
             border: 1px solid #2d3748;
+            transition: 0.2s;
         }
-
-        .panel:hover { border-color: #fff; transform: scale(1.05); z-index: 1; }
+        .panel:hover { border-color: #fff; transform: scale(1.05); }
         .p-normal { border-color: var(--primary-blue); color: var(--primary-blue); }
         .p-dirty { border-color: var(--warning-orange); color: var(--warning-orange); background: rgba(243,156,18,0.1); }
         .p-error { border-color: var(--danger-red); color: var(--danger-red); animation: blink 2s infinite; }
 
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-        /* 日志表格 */
-        .table-scroll { flex: 1; overflow-y: auto; }
-        table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        th { text-align: left; padding: 10px; color: #718096; border-bottom: 1px solid var(--border-color); }
-        td { padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.02); }
-
-        .btn-work {
-            background: var(--primary-blue);
-            border: none;
-            color: #000;
-            padding: 4px 12px;
-            border-radius: 4px;
-            font-size: 12px;
-            cursor: pointer;
-            font-weight: bold;
-            margin-top: 8px;
+        /* 设备档案样式 */
+        .device-box {
+            background: rgba(255,255,255,0.03);
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 12px;
+            border-left: 4px solid var(--primary-blue);
+            font-size: 13px;
+            transition: all 0.3s;
         }
+        .working { background: rgba(46, 204, 113, 0.1); border-left-color: var(--accent-green); }
+        .alerting { background: rgba(231, 76, 60, 0.1); border-left-color: var(--danger-red); animation: pulse 1s infinite; }
 
-        #notify-bar {
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+
+        /* 顶部告警弹窗 */
+        #alert-popup {
             position: fixed;
             top: 20px;
             left: 50%;
             transform: translateX(-50%);
-            padding: 10px 30px;
-            border-radius: 20px;
-            display: none;
-            z-index: 9999;
+            padding: 12px 30px;
+            border-radius: 30px;
+            background: var(--danger-red);
+            color: white;
             font-weight: bold;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            display: none;
+            z-index: 1000;
+            box-shadow: 0 0 20px rgba(231,76,60,0.5);
+            font-size: 14px;
         }
     </style>
 </head>
 <body>
 
+<div id="alert-popup">警告：检测到面板物理破损！已向维修人员发送信号</div>
+
 <header>
-    <div class="logo">PV-OS 智慧电站监控系统</div>
-    <div style="font-size: 13px; font-family: monospace;">
-        <span id="clock" style="margin-right: 20px;"></span>
-        无人机巡检: <span style="color:var(--accent-green)">运行中</span> | 
-        电池: <span id="uav-bat" style="color:var(--primary-blue)">100%</span>
-    </div>
+    <div class="logo">PV-OS 智慧电站监控大屏</div>
+    <div id="clock" style="font-family: monospace; font-size: 14px;"></div>
 </header>
 
 <main>
     <div class="column">
         <div class="card" style="flex: 1;">
-            <div class="card-title">站内自动化设备档案</div>
+            <div class="card-title">自动化作业设备</div>
             
-            <div class="device-box">
-                <b>设备：</b>无人机 (巡检器)<br>
-                <b>编号：</b>UAV-01 | <b>型号：</b>M300 RTK<br>
-                <b>状态：</b><span style="color:var(--accent-green)">空中巡航巡检中</span>
+            <div class="device-box" id="uav-box">
+                <b>无人机 (高清巡检)</b><br>
+                状态：<span id="uav-status" style="color:var(--accent-green)">高清影像实时回传中</span>
             </div>
 
-            <div class="device-box" style="border-left-color: var(--warning-orange);">
-                <b>设备：</b>履带小车 (清扫器)<br>
-                <b>编号：</b>BOT-01 | <b>型号：</b>履带式全自动版<br>
-                <b>状态：</b><span style="color:var(--warning-orange)">充电桩待命</span><br>
-                <button class="btn-work" onclick="manualStart()">指派履带小车出动</button>
+            <div class="device-box" id="bot-box" style="border-left-color: var(--warning-orange);">
+                <b>履带小车 (表面清扫)</b><br>
+                状态：<span id="bot-status">基站充电待命</span>
             </div>
 
-            <div class="device-box" style="border-left-color: var(--text-main);">
-                <b>设备：</b>履带小车 (清扫器)<br>
-                <b>编号：</b>BOT-02 | <b>型号：</b>履带式轻量版<br>
-                <b>状态：</b><span>离线保养</span>
+            <div class="device-box" id="system-box" style="border-left-color: #555;">
+                <b>运维指挥中心</b><br>
+                状态：<span id="system-status">系统监控中</span>
             </div>
         </div>
     </div>
 
     <div class="column" style="flex: 2;">
         <div class="card" style="flex: 1;">
-            <div class="card-title">光伏阵列实时拓扑分布</div>
+            <div class="card-title">光伏阵列实时状态图</div>
             
             <div class="legend">
-                <div class="legend-item"><div class="dot" style="background:var(--primary-blue)"></div> 正常 (Normal)</div>
-                <div class="legend-item"><div class="dot" style="background:var(--warning-orange)"></div> 待清洁 (Dirty)</div>
-                <div class="legend-item"><div class="dot" style="background:var(--danger-red)"></div> 故障 (Error)</div>
+                <div class="legend-item"><div class="dot" style="background:var(--primary-blue)"></div> 正常面板</div>
+                <div class="legend-item"><div class="dot" style="background:var(--warning-orange)"></div> 表面污垢 (需清扫)</div>
+                <div class="legend-item"><div class="dot" style="background:var(--danger-red)"></div> 物理破损 (紧急告警)</div>
             </div>
 
             <div class="grid-wrapper" id="panelGrid"></div>
@@ -202,13 +198,13 @@
     <div class="column">
         <div class="card" style="flex: 1;">
             <div class="card-title">实时作业与维护日志</div>
-            <div class="table-scroll">
+            <div class="log-scroll-area">
                 <table>
                     <thead>
                         <tr>
                             <th width="40%">时间戳</th>
-                            <th width="20%">操作对象</th>
-                            <th>详细日志内容</th>
+                            <th width="20%">对象</th>
+                            <th>维护详情</th>
                         </tr>
                     </thead>
                     <tbody id="logBody"></tbody>
@@ -218,94 +214,96 @@
     </div>
 </main>
 
-<div id="notify-bar"></div>
-
 <script>
-    const panelGrid = document.getElementById('panelGrid');
     const logBody = document.getElementById('logBody');
     const clock = document.getElementById('clock');
-    const uavBat = document.getElementById('uav-bat');
-    const notifyBar = document.getElementById('notify-bar');
+    const panelGrid = document.getElementById('panelGrid');
+    const botStatus = document.getElementById('bot-status');
+    const botBox = document.getElementById('bot-box');
+    const systemBox = document.getElementById('system-box');
+    const systemStatus = document.getElementById('system-status');
+    const alertPopup = document.getElementById('alert-popup');
 
-    // 格式化时间 YYYY-MM-DD HH:mm:ss
-    function getFullTime() {
+    function getTime() {
         const d = new Date();
         const f = (n) => String(n).padStart(2, '0');
-        return `${d.getFullYear()}-${f(d.getMonth()+1)}-${f(d.getDate())} ${f(d.getHours())}:${f(f(d.getMinutes()))}:${f(d.getSeconds())}`;
+        return `${d.getFullYear()}-${f(d.getMonth()+1)}-${f(d.getDate())} ${f(d.getHours())}:${f(d.getMinutes())}:${f(d.getSeconds())}`;
     }
+    setInterval(() => { clock.innerText = getTime(); }, 1000);
 
-    // 更新时钟
-    setInterval(() => { clock.innerText = getFullTime(); }, 1000);
-
-    // 初始化100块板子
     for (let i = 1; i <= 100; i++) {
         const p = document.createElement('div');
-        p.className = 'panel';
-        const formattedId = 'P-' + String(i).padStart(3, '0');
-        p.innerText = formattedId;
+        const idStr = 'P-' + String(i).padStart(3, '0');
+        p.innerText = idStr;
+        
+        if (i % 12 === 0) p.className = 'panel p-dirty';
+        else if (i === 15 || i === 42 || i === 88) p.className = 'panel p-error';
+        else p.className = 'panel p-normal';
 
-        // 设置初始随机状态
-        if (i === 15 || i === 88 || i === 42) {
-            p.classList.add('p-error');
-        } else if (i % 6 === 0) {
-            p.classList.add('p-dirty');
-        } else {
-            p.classList.add('p-normal');
-        }
-
-        // 点击逻辑修复
         p.onclick = () => {
-            const time = getFullTime();
+            const now = getTime();
             if (p.classList.contains('p-dirty')) {
-                p.classList.remove('p-dirty');
-                p.classList.add('p-normal');
-                addLog(time, '履带小车', `已完成光伏板 #${formattedId} 的自动清洗`);
-                popNotify(`成功：履带小车已清洗 #${formattedId}`, 'success');
+                startCleaning(idStr, p);
             } else if (p.classList.contains('p-error')) {
-                addLog(time, '系统中心', `警告：板 #${formattedId} 功率跌落，故障信息已推送给负责人`);
-                popNotify(`告警：板 #${formattedId} 存在硬件故障！`, 'error');
+                // --- 触发物理破损告警逻辑 ---
+                triggerErrorAlert(idStr);
             } else {
-                addLog(time, '无人机', `红外巡检板 #${formattedId}，表面温度正常`);
+                addLog(now, '无人机', `高清巡检扫描：#${idStr} 板块表面状况良好`);
             }
         };
-
         panelGrid.appendChild(p);
     }
 
-    // 日志写入
+    // 处理橙色清扫逻辑
+    function startCleaning(panelId, element) {
+        botBox.classList.add('working');
+        botStatus.style.color = 'var(--accent-green)';
+        botStatus.innerText = `前往清扫板块 #${panelId}...`;
+        addLog(getTime(), '系统中心', `指令下发：履带小车前往清扫 #${panelId}`);
+
+        setTimeout(() => {
+            element.className = 'panel p-normal';
+            botBox.classList.remove('working');
+            botStatus.style.color = 'inherit';
+            botStatus.innerText = '完成任务，返回基站中';
+            addLog(getTime(), '履带小车', `已完成对 #${panelId} 板块的清扫`);
+            setTimeout(() => { botStatus.innerText = '基站充电待命'; }, 2000);
+        }, 2500);
+    }
+
+    // 处理红色故障逻辑
+    function triggerErrorAlert(panelId) {
+        const now = getTime();
+        
+        // 1. 弹出顶部警告浮层
+        alertPopup.innerText = `警告：检测到面板 #${panelId} 物理破损！已向维修人员发送信号`;
+        alertPopup.style.display = 'block';
+        
+        // 2. 左侧运维中心进入告警状态
+        systemBox.classList.add('alerting');
+        systemStatus.style.color = 'var(--danger-red)';
+        systemStatus.innerText = `紧急处理 #${panelId} 故障中...`;
+
+        // 3. 日志记录
+        addLog(now, '无人机', `高清影像比对：确认 #${panelId} 板块破损/裂纹`);
+        addLog(now, '运维中心', `[紧急告警] 已自动向 1 号维修班组发送派单信号`);
+
+        // 4. 4秒后关闭浮层和告警状态（模拟信号发送完毕）
+        setTimeout(() => {
+            alertPopup.style.display = 'none';
+            systemBox.classList.remove('alerting');
+            systemStatus.style.color = 'inherit';
+            systemStatus.innerText = '系统监控中 (待维修人员确认)';
+        }, 4000);
+    }
+
     function addLog(ts, obj, msg) {
         const tr = document.createElement('tr');
         tr.innerHTML = `<td>${ts}</td><td style="color:var(--primary-blue)">${obj}</td><td>${msg}</td>`;
         logBody.insertBefore(tr, logBody.firstChild);
     }
 
-    // 弹窗提示
-    function popNotify(msg, type) {
-        notifyBar.innerText = msg;
-        notifyBar.style.background = type === 'error' ? 'var(--danger-red)' : 'var(--accent-green)';
-        notifyBar.style.display = 'block';
-        setTimeout(() => { notifyBar.style.display = 'none'; }, 2500);
-    }
-
-    // 手动指派按钮
-    function manualStart() {
-        addLog(getFullTime(), '系统中心', '手动指令：派发 BOT-01 履带小车执行全场巡回清扫');
-        popNotify('指令已下发，履带小车启动中');
-    }
-
-    // 模拟无人机电量
-    let bat = 100;
-    setInterval(() => {
-        if(bat > 5) {
-            bat--;
-            uavBat.innerText = bat + '%';
-            if(bat < 20) uavBat.style.color = 'var(--danger-red)';
-        }
-    }, 15000);
-
-    // 初始化第一条日志
-    addLog(getFullTime(), '系统中心', '光伏智慧运维管理系统启动完毕');
+    addLog(getTime(), '系统', '系统巡检初始化完成');
 </script>
-
 </body>
 </html>
