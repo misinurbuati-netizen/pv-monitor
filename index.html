@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>智慧光伏电站运维监控系统</title>
+    <title>智慧光伏电站运维系统 - 西北管控中心</title>
     <style>
         :root {
             --bg-dark: #06090f;
@@ -19,176 +19,141 @@
         body {
             background-color: var(--bg-dark);
             color: var(--text-main);
-            font-family: 'PingFang SC', sans-serif;
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            overflow: hidden;
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+        }
+
+        /* 顶部紧急告警浮窗 - 修复显示不全问题 */
+        #alert-popup {
+            position: fixed; top: 10%; left: 50%; transform: translate(-50%, -50%);
+            width: 80%; max-width: 600px; padding: 25px; border-radius: 12px;
+            background: rgba(231, 76, 60, 0.98); color: white;
+            font-weight: bold; text-align: center;
+            display: none; z-index: 10000;
+            box-shadow: 0 0 40px rgba(0,0,0,0.8);
+            border: 3px solid #fff;
+            line-height: 1.6;
         }
 
         header {
-            padding: 12px 25px;
-            background: #0f172a;
-            border-bottom: 2px solid var(--primary-blue);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            padding: 12px 25px; background: #0f172a; border-bottom: 2px solid var(--primary-blue);
+            display: flex; justify-content: space-between; align-items: center;
         }
 
-        .logo { font-size: 20px; font-weight: bold; color: var(--primary-blue); text-shadow: 0 0 10px rgba(0,242,255,0.3); }
+        .logo { font-size: 20px; font-weight: bold; color: var(--primary-blue); letter-spacing: 1px; }
 
         main {
-            display: grid;
-            grid-template-columns: 350px 1fr 420px;
-            gap: 15px;
-            padding: 15px;
-            flex: 1;
-            overflow: hidden;
+            display: grid; grid-template-columns: 350px 1fr 450px; gap: 15px;
+            padding: 15px; flex: 1; overflow: hidden;
         }
 
         .column { display: flex; flex-direction: column; gap: 15px; height: 100%; overflow: hidden; }
 
         .card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 10px;
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
+            background: var(--card-bg); border: 1px solid var(--border-color);
+            border-radius: 10px; padding: 15px; display: flex; flex-direction: column; overflow: hidden;
         }
 
         .card-title {
-            color: var(--primary-blue);
-            font-size: 15px;
-            font-weight: bold;
-            margin-bottom: 12px;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 8px;
+            color: var(--primary-blue); font-size: 15px; font-weight: bold;
+            margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;
         }
 
-        /* 状态标注图例 */
-        .legend {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 12px;
-            font-size: 12px;
+        /* 天气面板 */
+        .weather-info {
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            padding: 15px; border-radius: 8px; border: 1px solid #334155;
         }
-        .legend-item { display: flex; align-items: center; gap: 6px; }
-        .dot { width: 12px; height: 12px; border-radius: 2px; }
+        .temp-large { font-size: 32px; color: var(--primary-blue); font-weight: bold; }
 
-        /* 日志滚动区域 */
-        .log-scroll-area {
-            flex: 1;
-            overflow-y: auto;
-            border: 1px solid rgba(255,255,255,0.05);
-            border-radius: 4px;
+        /* 状态标记 - 修复回归 */
+        .legend-bar {
+            background: rgba(255,255,255,0.05); padding: 12px; border-radius: 6px;
+            display: flex; gap: 20px; margin-bottom: 15px; font-size: 13px;
         }
-        
-        table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
-        th { text-align: left; padding: 10px; color: #718096; position: sticky; top: 0; background: var(--card-bg); z-index: 10; border-bottom: 1px solid var(--border-color); }
-        td { padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.02); word-wrap: break-word; }
+        .legend-item { display: flex; align-items: center; gap: 8px; }
+        .dot { width: 14px; height: 14px; border-radius: 3px; }
 
-        /* 网格面板样式 */
+        /* 网格 */
         .grid-wrapper {
-            display: grid;
-            grid-template-columns: repeat(10, 1fr);
-            gap: 6px;
-            overflow-y: auto;
+            display: grid; grid-template-columns: repeat(10, 1fr); gap: 8px; overflow-y: auto; padding-right: 5px;
         }
 
         .panel {
-            aspect-ratio: 1.2 / 1;
-            border-radius: 4px;
-            font-size: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid #2d3748;
-            transition: 0.2s;
+            aspect-ratio: 1.1; border-radius: 4px; font-size: 11px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; background: rgba(255,255,255,0.05); border: 1px solid #2d3748; transition: 0.3s;
         }
-        .panel:hover { border-color: #fff; transform: scale(1.05); }
+        .panel:hover { border-color: #fff; background: rgba(255,255,255,0.15); }
         .p-normal { border-color: var(--primary-blue); color: var(--primary-blue); }
-        .p-dirty { border-color: var(--warning-orange); color: var(--warning-orange); background: rgba(243,156,18,0.1); }
-        .p-error { border-color: var(--danger-red); color: var(--danger-red); animation: blink 2s infinite; }
+        .p-dirty { border-color: var(--warning-orange); color: var(--warning-orange); background: rgba(243,156,18,0.15); }
+        .p-error { border-color: var(--danger-red); color: var(--danger-red); animation: blink 1.5s infinite; }
 
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        @keyframes blink { 50% { opacity: 0.2; } }
 
-        /* 设备档案样式 */
         .device-box {
-            background: rgba(255,255,255,0.03);
-            border-radius: 6px;
-            padding: 12px;
-            margin-bottom: 12px;
-            border-left: 4px solid var(--primary-blue);
-            font-size: 13px;
-            transition: all 0.3s;
+            background: rgba(255,255,255,0.03); border-radius: 6px; padding: 12px;
+            margin-bottom: 10px; border-left: 4px solid var(--primary-blue); font-size: 13px;
         }
-        .working { background: rgba(46, 204, 113, 0.1); border-left-color: var(--accent-green); }
-        .alerting { background: rgba(231, 76, 60, 0.1); border-left-color: var(--danger-red); animation: pulse 1s infinite; }
+        .working { border-left-color: var(--accent-green); background: rgba(46,204,113,0.1); }
 
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
-
-        /* 顶部告警弹窗 */
-        #alert-popup {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 12px 30px;
-            border-radius: 30px;
-            background: var(--danger-red);
-            color: white;
-            font-weight: bold;
-            display: none;
-            z-index: 1000;
-            box-shadow: 0 0 20px rgba(231,76,60,0.5);
-            font-size: 14px;
-        }
+        /* 日志区域 - 修正滚动与日期 */
+        .log-scroll-area { flex: 1; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th { text-align: left; padding: 10px; color: #718096; position: sticky; top: 0; background: var(--card-bg); border-bottom: 1px solid var(--border-color); }
+        td { padding: 10px 8px; border-bottom: 1px solid rgba(255,255,255,0.02); font-family: monospace; }
+        .log-obj { color: var(--primary-blue); font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div id="alert-popup">警告：检测到面板物理破损！已向维修人员发送信号</div>
+<div id="alert-popup"></div>
 
 <header>
-    <div class="logo">PV-OS 智慧电站监控大屏</div>
-    <div id="clock" style="font-family: monospace; font-size: 14px;"></div>
+    <div class="logo">西北基地智慧运维实时监控</div>
+    <div id="clock" style="font-family: monospace; font-size: 16px;"></div>
 </header>
 
 <main>
     <div class="column">
+        <div class="card">
+            <div class="card-title">区域实测气象 (甘肃酒泉)</div>
+            <div class="weather-info">
+                <div style="display: flex; justify-content: space-between;">
+                    <span id="weather-cond" style="color:var(--warning-orange)">浮尘天气</span>
+                    <span>西北风 5级</span>
+                </div>
+                <div style="margin: 10px 0;">
+                    <span class="temp-large">14°C</span>
+                    <span style="font-size: 14px; margin-left: 10px; color: #94a3b8;">湿度 18%</span>
+                </div>
+                <div style="font-size: 12px; color: #718096; line-height: 1.5;">
+                    预警：高风险沙尘沉积。建议无人机低空作业，履带小车待命随时介入。
+                </div>
+            </div>
+        </div>
+
         <div class="card" style="flex: 1;">
-            <div class="card-title">自动化作业设备</div>
-            
+            <div class="card-title">运维设备状态</div>
             <div class="device-box" id="uav-box">
                 <b>无人机 (高清巡检)</b><br>
-                状态：<span id="uav-status" style="color:var(--accent-green)">高清影像实时回传中</span>
+                状态：<span style="color:var(--accent-green)">任务中：酒泉-03区巡航</span>
             </div>
-
             <div class="device-box" id="bot-box" style="border-left-color: var(--warning-orange);">
-                <b>履带小车 (表面清扫)</b><br>
-                状态：<span id="bot-status">基站充电待命</span>
-            </div>
-
-            <div class="device-box" id="system-box" style="border-left-color: #555;">
-                <b>运维指挥中心</b><br>
-                状态：<span id="system-status">系统监控中</span>
+                <b>履带小车 (智能除尘)</b><br>
+                状态：<span id="bot-status">基站待命</span>
             </div>
         </div>
     </div>
 
     <div class="column" style="flex: 2;">
         <div class="card" style="flex: 1;">
-            <div class="card-title">光伏阵列实时状态图</div>
+            <div class="card-title">光伏阵列实时状态拓扑</div>
             
-            <div class="legend">
-                <div class="legend-item"><div class="dot" style="background:var(--primary-blue)"></div> 正常面板</div>
-                <div class="legend-item"><div class="dot" style="background:var(--warning-orange)"></div> 表面污垢 (需清扫)</div>
-                <div class="legend-item"><div class="dot" style="background:var(--danger-red)"></div> 物理破损 (紧急告警)</div>
+            <div class="legend-bar">
+                <div class="legend-item"><div class="dot" style="background:var(--primary-blue)"></div> 正常运行</div>
+                <div class="legend-item"><div class="dot" style="background:var(--warning-orange)"></div> 沙尘沉积 (需清洗)</div>
+                <div class="legend-item"><div class="dot" style="background:var(--danger-red)"></div> 物理破损 (立即维修)</div>
             </div>
 
             <div class="grid-wrapper" id="panelGrid"></div>
@@ -197,13 +162,13 @@
 
     <div class="column">
         <div class="card" style="flex: 1;">
-            <div class="card-title">实时作业与维护日志</div>
+            <div class="card-title">系统作业与维护日志</div>
             <div class="log-scroll-area">
                 <table>
                     <thead>
                         <tr>
-                            <th width="40%">时间戳</th>
-                            <th width="20%">对象</th>
+                            <th width="45%">作业日期/时间</th>
+                            <th width="20%">执行主体</th>
                             <th>维护详情</th>
                         </tr>
                     </thead>
@@ -218,92 +183,85 @@
     const logBody = document.getElementById('logBody');
     const clock = document.getElementById('clock');
     const panelGrid = document.getElementById('panelGrid');
+    const alertPopup = document.getElementById('alert-popup');
     const botStatus = document.getElementById('bot-status');
     const botBox = document.getElementById('bot-box');
-    const systemBox = document.getElementById('system-box');
-    const systemStatus = document.getElementById('system-status');
-    const alertPopup = document.getElementById('alert-popup');
 
-    function getTime() {
-        const d = new Date();
-        const f = (n) => String(n).padStart(2, '0');
-        return `${d.getFullYear()}-${f(d.getMonth()+1)}-${f(d.getDate())} ${f(d.getHours())}:${f(d.getMinutes())}:${f(d.getSeconds())}`;
+    // 获取完整日期时间 YYYY-MM-DD HH:mm:ss
+    function getFullDateTime() {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        const hh = String(now.getHours()).padStart(2, '0');
+        const mm = String(now.getMinutes()).padStart(2, '0');
+        const ss = String(now.getSeconds()).padStart(2, '0');
+        return `${y}-${m}-${d} ${hh}:${mm}:${ss}`;
     }
-    setInterval(() => { clock.innerText = getTime(); }, 1000);
 
+    // 更新页头时钟
+    setInterval(() => { clock.innerText = getFullDateTime(); }, 1000);
+
+    // 初始化面板
     for (let i = 1; i <= 100; i++) {
         const p = document.createElement('div');
-        const idStr = 'P-' + String(i).padStart(3, '0');
-        p.innerText = idStr;
+        const id = 'P-' + String(i).padStart(3, '0');
+        p.innerText = id;
         
-        if (i % 12 === 0) p.className = 'panel p-dirty';
+        if (i % 9 === 0) p.className = 'panel p-dirty';
         else if (i === 15 || i === 42 || i === 88) p.className = 'panel p-error';
         else p.className = 'panel p-normal';
 
         p.onclick = () => {
-            const now = getTime();
-            if (p.classList.contains('p-dirty')) {
-                startCleaning(idStr, p);
-            } else if (p.classList.contains('p-error')) {
-                // --- 触发物理破损告警逻辑 ---
-                triggerErrorAlert(idStr);
-            } else {
-                addLog(now, '无人机', `高清巡检扫描：#${idStr} 板块表面状况良好`);
-            }
+            if (p.classList.contains('p-dirty')) handleClean(id, p);
+            else if (p.classList.contains('p-error')) handleAlert(id);
+            else addLog('无人机', `高清扫描确认：${id} 表面完好无污垢`);
         };
         panelGrid.appendChild(p);
     }
 
-    // 处理橙色清扫逻辑
-    function startCleaning(panelId, element) {
+    function handleClean(id, el) {
         botBox.classList.add('working');
+        botStatus.innerText = `正在前往清理 #${id}...`;
         botStatus.style.color = 'var(--accent-green)';
-        botStatus.innerText = `前往清扫板块 #${panelId}...`;
-        addLog(getTime(), '系统中心', `指令下发：履带小车前往清扫 #${panelId}`);
-
+        addLog('履带小车', `启动专项沙尘清理作业：针对面板 ${id}`);
+        
         setTimeout(() => {
-            element.className = 'panel p-normal';
+            el.className = 'panel p-normal';
             botBox.classList.remove('working');
+            botStatus.innerText = '基站待命';
             botStatus.style.color = 'inherit';
-            botStatus.innerText = '完成任务，返回基站中';
-            addLog(getTime(), '履带小车', `已完成对 #${panelId} 板块的清扫`);
-            setTimeout(() => { botStatus.innerText = '基站充电待命'; }, 2000);
-        }, 2500);
+            addLog('履带小车', `面板 ${id} 清理完毕，透光率回升。`);
+        }, 2000);
     }
 
-    // 处理红色故障逻辑
-    function triggerErrorAlert(panelId) {
-        const now = getTime();
-        
-        // 1. 弹出顶部警告浮层
-        alertPopup.innerText = `警告：检测到面板 #${panelId} 物理破损！已向维修人员发送信号`;
+    // 修复红色告警
+    function handleAlert(id) {
+        alertPopup.innerHTML = `
+            <div style="font-size: 20px; margin-bottom: 10px;">🔴 紧急维护通知</div>
+            <div style="font-size: 16px;">
+                系统检测到面板 <b>${id}</b> 发生严重物理损坏！<br>
+                地理位置：西北基地 01区 03排<br>
+                状态：<b>[信号已发送]</b> - 自动派发维修单至现场班组
+            </div>
+        `;
         alertPopup.style.display = 'block';
-        
-        // 2. 左侧运维中心进入告警状态
-        systemBox.classList.add('alerting');
-        systemStatus.style.color = 'var(--danger-red)';
-        systemStatus.innerText = `紧急处理 #${panelId} 故障中...`;
-
-        // 3. 日志记录
-        addLog(now, '无人机', `高清影像比对：确认 #${panelId} 板块破损/裂纹`);
-        addLog(now, '运维中心', `[紧急告警] 已自动向 1 号维修班组发送派单信号`);
-
-        // 4. 4秒后关闭浮层和告警状态（模拟信号发送完毕）
-        setTimeout(() => {
-            alertPopup.style.display = 'none';
-            systemBox.classList.remove('alerting');
-            systemStatus.style.color = 'inherit';
-            systemStatus.innerText = '系统监控中 (待维修人员确认)';
-        }, 4000);
+        addLog('系统中心', `[警报] 检测到物理损毁：${id}，已触发自动派单机制`);
+        setTimeout(() => { alertPopup.style.display = 'none'; }, 5000);
     }
 
-    function addLog(ts, obj, msg) {
+    function addLog(obj, msg) {
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${ts}</td><td style="color:var(--primary-blue)">${obj}</td><td>${msg}</td>`;
+        tr.innerHTML = `
+            <td>${getFullDateTime()}</td>
+            <td class="log-obj">${obj}</td>
+            <td>${msg}</td>
+        `;
         logBody.insertBefore(tr, logBody.firstChild);
     }
 
-    addLog(getTime(), '系统', '系统巡检初始化完成');
+    // 初始化日志
+    addLog('系统中心', '西北场站管控平台启动成功，全场通讯正常');
 </script>
 </body>
 </html>
