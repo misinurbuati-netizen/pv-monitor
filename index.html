@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PV-OS 4.0 西北基地智慧监控系统</title>
+    <title>PV-OS 4.1 西北基地智慧监控系统 (双人联动版)</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -107,7 +106,7 @@
 <div id="alert-popup"></div>
 
 <header>
-    <div class="logo">PV-OS 西北基地实时运维中心 (V4.0)</div>
+    <div class="logo">PV-OS 西北基地实时运维中心 (V4.1 - 双人监控)</div>
     <div id="clock" style="font-family: monospace; font-size: 18px; color: var(--primary-blue);"></div>
 </header>
 
@@ -180,6 +179,12 @@
 </main>
 
 <script>
+    // --- [修改] 配置双人 SendKey 数组 ---
+    const KEYS = [
+        'SCT316557Te9lbWvEB1wXbnOG91YgQKlFH', // 第一负责人 (你)
+        'SCT316562TrO4WoFFGxdxQWbQ89I9hTFHJ'  // 第二负责人 (组员)
+    ];
+
     const logBody = document.getElementById('logBody');
     const clock = document.getElementById('clock');
     const panelGrid = document.getElementById('panelGrid');
@@ -189,13 +194,31 @@
     let powerChart;
     const powerHistory = [];
     const labelsHistory = [];
-    let globalBasePower = 420; // 默认基准功率值
+    let globalBasePower = 420;
 
     function getFullDateTime() {
         const now = new Date();
         return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${now.toTimeString().split(' ')[0]}`;
     }
     setInterval(() => { clock.innerText = getFullDateTime(); }, 1000);
+
+    // --- [修改] 多人微信推送核心函数 ---
+    async function sendWechatToAll(id, statusDesc, pwr) {
+        const title = encodeURIComponent(`🚨 [PV-OS双人告警] 面板损坏: #${id}`);
+        const content = encodeURIComponent(`### ⚠️ 板块物理损坏告警 (多员联动)\n\n**故障编号**：${id}\n**故障诊断**：${statusDesc}\n**实时功率**：${pwr}W\n**同步时间**：${getFullDateTime()}\n\n**运维说明**：\n> 此消息已同步推送给 2 位组员。请确认响应情况，携带检修工具前往现场。`);
+        
+        // 使用 map 创建所有请求的 Promise
+        const requests = KEYS.map(key => 
+            fetch(`https://sctapi.ftqq.com/${key}.send?title=${title}&desp=${content}`, { mode: 'no-cors' })
+        );
+
+        try {
+            await Promise.all(requests);
+            addLog('系统', `[微信推送] 告警已同步发送至运维小组(2人)。`);
+        } catch(e) {
+            addLog('系统', `[错误] 部分推送请求失败。`);
+        }
+    }
 
     // 获取高德天气
     async function fetchWeather() {
@@ -216,29 +239,20 @@
         } catch(e) {}
     }
 
-    // [新增] 获取 Open-Meteo 实时辐射量
     async function fetchSolarRadiation() {
         try {
-            // 酒泉基地经纬度: 39.74, 98.50
             const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=39.74&longitude=98.50&current=shortwave_radiation');
             const data = await res.json();
-            const radiation = data.current.shortwave_radiation; // 单位 W/m²
-            
-            // 简单物理模型：功率 = 辐射值 * 转换系数 (暂定0.45)
-            // 辐射强度越大，基准功率越高
+            const radiation = data.current.shortwave_radiation; 
             globalBasePower = Math.max(10, radiation * 0.45); 
-            
-            addLog('能源局', `同步实时辐射强度：${radiation} W/m² (动态调整功率基准)`);
-            updateAllPanelsPower(); // 获取到新辐射值后，更新全场板子显示
-        } catch(e) {
-            console.error("辐射API获取失败");
-        }
+            addLog('能源局', `同步实时辐射强度：${radiation} W/m²`);
+            updateAllPanelsPower(); 
+        } catch(e) {}
     }
 
-    // 动态更新板块功率数值
     function updateAllPanelsPower() {
         document.querySelectorAll('.panel.p-normal').forEach(p => {
-            const randomVar = Math.random() * 10 - 5; // ±5W 随机扰动
+            const randomVar = Math.random() * 10 - 5; 
             const newP = Math.floor(globalBasePower + randomVar);
             p.querySelector('.p-val').innerText = newP + 'W';
         });
@@ -292,7 +306,7 @@
 
     function handleAction(id, status, pwr, el) {
         if (status === 'p-normal') {
-            addLog('巡检', `例行抽检板块 ${id}，当前输出功率 ${pwr}W，状态健康。`);
+            addLog('巡检', `例行抽检板块 ${id}，状态健康。`);
             el.style.borderColor = "#fff";
             setTimeout(() => el.style.borderColor = "var(--primary-blue)", 300);
             return;
@@ -301,7 +315,7 @@
         if (status === 'p-dust') {
             document.getElementById('bot-box').classList.add('working');
             document.getElementById('bot-status').innerText = `履带车作业: ${id}`;
-            addLog('履带车', `开始清扫积灰板块 ${id} (原功率 ${pwr}W)`);
+            addLog('履带车', `开始清扫积灰板块 ${id}`);
             setTimeout(() => {
                 const newP = Math.floor(globalBasePower + 12);
                 el.className = 'panel p-normal';
@@ -312,12 +326,16 @@
                 updateTotal();
             }, 1800);
         } else if (status === 'p-low') {
-            addLog('无人机', `可见光详查 ${id}：未发现物理破损，推断为局部阴影遮挡。`);
+            addLog('无人机', `可见光详查 ${id}：推断为局部阴影遮挡。`);
         } else if (status === 'p-break') {
-            alertPopup.innerHTML = `🚨 <b>硬件严重损坏告警</b><br>编号：#${id}<br>诊断：<b>物理碎裂 / 汇流端烧毁</b><br>功率：${pwr}W<br>请立即通知西北基地检修组前往。`;
+            alertPopup.innerHTML = `🚨 <b>硬件严重损坏告警</b><br>编号：#${id}<br>诊断：<b>物理碎裂 / 汇流端烧毁</b><br><span style="font-size:12px; color:#ffdada;">[双人小组微信推送已触发]</span>`;
             alertPopup.style.display = 'block';
-            addLog('警报', `[严重故障] 板块 ${id} 功率掉线，需更换硬件。`);
-            setTimeout(() => alertPopup.style.display='none', 5000);
+            
+            // --- [触发] 给两个负责人都发微信 ---
+            sendWechatToAll(id, '物理碎裂 / 汇流端烧毁', pwr);
+            
+            addLog('警报', `[严重故障] 板块 ${id} 功率异常，需手动更换。`);
+            setTimeout(() => alertPopup.style.display='none', 6000);
         }
     }
 
@@ -343,9 +361,8 @@
     initChart();
     fetchWeather();
     fetchSolarRadiation(); 
-    setInterval(fetchSolarRadiation, 30000); // 每30秒同步一次真实辐射值
+    setInterval(fetchSolarRadiation, 30000); 
     setInterval(updateTotal, 3000); 
 </script>
 </body>
 </html>
-
