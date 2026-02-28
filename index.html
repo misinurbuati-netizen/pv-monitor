@@ -3,102 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PV-OS 4.1 西北基地智慧监控系统 (双人联动版)</title>
+    <title>PV-OS 4.5 西北基地智慧监控系统 (全功能集成版)</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root {
-            --bg-dark: #06090f;
-            --card-bg: #111621;
-            --primary-blue: #00f2ff;
-            --accent-green: #2ecc71;
-            --warning-orange: #f39c12; /* 积灰 */
-            --sub-health: #9b59b6;     /* 异常/亚健康 */
-            --danger-red: #e74c3c;     /* 损坏 */
-            --border-color: #1e2736;
-            --text-main: #e2e8f0;
+            --bg-dark: #06090f; --card-bg: #111621; --primary-blue: #00f2ff;
+            --accent-green: #2ecc71; --warning-orange: #f39c12; 
+            --sub-health: #9b59b6; --danger-red: #e74c3c;
+            --border-color: #1e2736; --text-main: #e2e8f0;
         }
+        body { background-color: var(--bg-dark); color: var(--text-main); font-family: 'PingFang SC', sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        header { padding: 12px 25px; background: #0f172a; border-bottom: 2px solid var(--primary-blue); display: flex; justify-content: space-between; align-items: center; }
+        main { display: grid; grid-template-columns: 350px 1fr 400px; gap: 15px; padding: 15px; flex: 1; overflow: hidden; }
+        .column { display: flex; flex-direction: column; gap: 15px; height: 100%; }
+        .card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 15px; display: flex; flex-direction: column; overflow: hidden; }
+        .card-title { color: var(--primary-blue); font-size: 15px; font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
+        
+        /* 气象卡片样式 */
+        .weather-box { background: linear-gradient(135deg, #1e293b, #0f172a); padding: 12px; border-radius: 8px; border: 1px solid #334155; }
+        .temp-large { font-size: 32px; color: var(--primary-blue); font-weight: bold; }
 
-        body {
-            background-color: var(--bg-dark);
-            color: var(--text-main);
-            font-family: 'PingFang SC', sans-serif;
-            margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden;
-        }
-
-        #alert-popup {
-            position: fixed; top: 15%; left: 50%; transform: translateX(-50%);
-            width: 80%; max-width: 550px; padding: 25px; border-radius: 12px;
-            background: rgba(231, 76, 60, 0.98); color: white;
-            font-weight: bold; text-align: center;
-            display: none; z-index: 10000; border: 3px solid #fff;
-            box-shadow: 0 0 50px rgba(0,0,0,0.8); line-height: 1.6;
-        }
-
-        header {
-            padding: 12px 25px; background: #0f172a; border-bottom: 2px solid var(--primary-blue);
-            display: flex; justify-content: space-between; align-items: center;
-        }
-
-        .logo { font-size: 22px; font-weight: bold; color: var(--primary-blue); letter-spacing: 2px; }
-
-        main {
-            display: grid; grid-template-columns: 380px 1fr 450px; gap: 15px;
-            padding: 15px; flex: 1; overflow: hidden;
-        }
-
-        .column { display: flex; flex-direction: column; gap: 15px; height: 100%; overflow: hidden; }
-
-        .card {
-            background: var(--card-bg); border: 1px solid var(--border-color);
-            border-radius: 10px; padding: 18px; display: flex; flex-direction: column; overflow: hidden;
-        }
-
-        .card-title {
-            color: var(--primary-blue); font-size: 16px; font-weight: bold;
-            margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;
-        }
-
-        .weather-info { background: linear-gradient(135deg, #1e293b, #0f172a); padding: 15px; border-radius: 8px; border: 1px solid #334155; }
-        .temp-large { font-size: 36px; color: var(--primary-blue); font-weight: bold; }
-
-        #chart-container { flex: 1; min-height: 180px; margin-top: 10px; }
-
-        .status-legend {
-            display: flex; gap: 20px; margin-bottom: 15px; padding: 10px;
-            background: rgba(255,255,255,0.03); border-radius: 6px;
-        }
-        .legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: bold; }
-        .dot { width: 12px; height: 12px; border-radius: 2px; }
-
-        .grid-wrapper { display: grid; grid-template-columns: repeat(10, 1fr); gap: 8px; overflow-y: auto; }
-        .panel {
-            aspect-ratio: 1; border-radius: 4px; font-size: 9px;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            cursor: pointer; background: rgba(255,255,255,0.05); border: 1px solid #2d3748; transition: 0.2s;
-        }
-        .panel:hover { border-color: #fff; transform: scale(1.05); z-index: 10; }
-        .panel .p-val { font-weight: bold; margin-top: 2px; color: #fff; font-size: 10px; }
-
+        /* 面板矩阵样式 */
+        .grid-wrapper { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; overflow-y: auto; }
+        .panel { aspect-ratio: 1; border-radius: 4px; font-size: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; background: rgba(255,255,255,0.05); border: 1px solid #2d3748; transition: 0.2s; }
         .p-normal { border-color: var(--primary-blue); color: var(--primary-blue); }
         .p-dust { border-color: var(--warning-orange); color: var(--warning-orange); background: rgba(243,156,18,0.15); }
         .p-low { border-color: var(--sub-health); color: var(--sub-health); background: rgba(155,89,182,0.15); }
         .p-break { border-color: var(--danger-red); color: var(--danger-red); animation: pulse-blink 1.2s infinite; }
+        
+        @keyframes pulse-blink { 50% { background: rgba(231, 76, 60, 0.4); border-color: #fff; } }
 
-        @keyframes pulse-blink { 
-            0% { background: rgba(231, 76, 60, 0.1); }
-            50% { background: rgba(231, 76, 60, 0.4); border-color: #fff; }
-            100% { background: rgba(231, 76, 60, 0.1); }
-        }
-
-        .device-box {
-            background: rgba(255,255,255,0.03); border-radius: 6px; padding: 12px;
-            margin-bottom: 10px; border-left: 4px solid var(--primary-blue); font-size: 13px;
-        }
-        .working { border-left-color: var(--accent-green); background: rgba(46,204,113,0.1); }
-        .log-scroll-area { flex: 1; overflow-y: auto; }
-        table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        th { text-align: left; padding: 10px; color: #718096; position: sticky; top: 0; background: var(--card-bg); border-bottom: 1px solid var(--border-color); }
-        td { padding: 10px 8px; border-bottom: 1px solid rgba(255,255,255,0.02); font-family: monospace; }
+        /* 底部日志和图表 */
+        .log-area { flex: 1; overflow-y: auto; font-size: 11px; }
+        table { width: 100%; border-collapse: collapse; }
+        td { padding: 6px; border-bottom: 1px solid rgba(255,255,255,0.02); }
+        #alert-popup { position: fixed; top: 10%; left: 50%; transform: translateX(-50%); width: 80%; max-width: 500px; padding: 20px; border-radius: 12px; background: rgba(231, 76, 60, 0.98); color: white; display: none; z-index: 10000; border: 3px solid #fff; text-align: center; }
     </style>
 </head>
 <body>
@@ -106,263 +46,197 @@
 <div id="alert-popup"></div>
 
 <header>
-    <div class="logo">PV-OS 西北基地实时运维中心 (V4.1 - 双人监控)</div>
-    <div id="clock" style="font-family: monospace; font-size: 18px; color: var(--primary-blue);"></div>
+    <div style="font-size:18px; font-weight:bold; color:var(--primary-blue)">PV-OS 4.5 西北基地智慧监控中枢</div>
+    <div id="clock" style="font-family:monospace; color:var(--primary-blue)"></div>
 </header>
 
 <main>
     <div class="column">
         <div class="card">
-            <div class="card-title">西北气象联网监测 (真实)</div>
-            <div class="weather-info">
+            <div class="card-title">西北站联网气象 (真实API)</div>
+            <div class="weather-box">
                 <div style="display:flex; justify-content:space-between">
-                    <span id="weather-city" style="color:var(--primary-blue)">联网同步中...</span>
-                    <span id="weather-cond" style="color:var(--warning-orange)">--</span>
+                    <span id="w-city" style="color:var(--primary-blue)">定位中...</span>
+                    <span id="w-cond" style="color:var(--warning-orange)">--</span>
                 </div>
-                <div style="margin:10px 0">
-                    <span class="temp-large" id="weather-temp">--°C</span>
-                    <span style="font-size:12px; color:#94a3b8; margin-left:10px">湿度: <span id="weather-hum">--</span>%</span>
+                <div style="margin:8px 0">
+                    <span class="temp-large" id="w-temp">--°C</span>
+                    <span style="font-size:12px; color:#94a3b8; margin-left:10px">湿度: <span id="w-hum">--</span>%</span>
                 </div>
-                <div id="weather-tips" style="font-size:12px; border-top:1px solid #334155; padding-top:8px">正在获取酒泉站数据...</div>
+                <div id="w-tips" style="font-size:11px; border-top:1px solid #334155; padding-top:5px; color:#94a3b8">正在抓取酒泉站数据...</div>
             </div>
         </div>
-
-        <div class="card" style="flex: 1;">
-            <div class="card-title">基地维护单元 (履带/无人机)</div>
-            <div class="device-box" id="bot-box">
-                <b>BOT-A1 (履带式清扫机器人)</b><br>
-                状态：<span id="bot-status">基站就绪</span>
+        <div class="card" style="flex:1">
+            <div class="card-title">运维单位状态</div>
+            <div style="padding:10px; background:rgba(0,242,255,0.05); border-radius:6px; margin-bottom:10px">
+                <b>BOT-A1 履带清扫车</b><br>
+                状态：<span id="bot-msg" style="color:var(--accent-green)">基站待命</span>
             </div>
-            <div class="device-box" style="border-left-color: var(--sub-health);">
-                <b>UAV-X4 (高清巡检无人机)</b><br>
-                状态：<span style="color:var(--accent-green)">在线：可见光巡航</span>
+            <div style="padding:10px; background:rgba(155,89,182,0.05); border-radius:6px">
+                <b>UAV-X4 巡检无人机</b><br>
+                状态：<span style="color:var(--primary-blue)">AI巡视中...</span>
             </div>
-            <div style="margin-top: auto; padding: 15px; background: rgba(0,242,255,0.05); border-radius: 8px;">
-                <div style="font-size: 11px; color: #94a3b8;">全场实时总功率 (kW)</div>
-                <div id="total-power" style="font-size: 28px; font-weight: bold; color: var(--accent-green);">-- kW</div>
+            <div style="margin-top:auto; padding:12px; background:rgba(46,204,113,0.1); border-radius:8px">
+                <div style="font-size:11px; color:#94a3b8">全场实时总功率</div>
+                <div id="total-p" style="font-size:24px; font-weight:bold; color:var(--accent-green)">0.00 kW</div>
             </div>
         </div>
     </div>
 
-    <div class="column" style="flex: 1.5;">
-        <div class="card" style="flex: 1;">
-            <div class="card-title">板阵健康拓扑 (四级功率诊断)</div>
-            <div class="status-legend">
-                <div class="legend-item"><div class="dot" style="background:var(--primary-blue)"></div> 正常</div>
-                <div class="legend-item"><div class="dot" style="background:var(--warning-orange)"></div> 积灰</div>
-                <div class="legend-item"><div class="dot" style="background:var(--sub-health)"></div> 异常</div>
-                <div class="legend-item"><div class="dot" style="background:var(--danger-red)"></div> 损坏</div>
-            </div>
-            <div class="grid-wrapper" id="panelGrid"></div>
+    <div class="card" style="flex:1">
+        <div class="card-title">板阵健康拓扑 (四级诊断)</div>
+        <div style="display:flex; gap:12px; font-size:11px; margin-bottom:10px; opacity:0.8">
+            <span><i style="color:var(--primary-blue)">●</i> 正常</span>
+            <span><i style="color:var(--warning-orange)">●</i> 积灰</span>
+            <span><i style="color:var(--sub-health)">●</i> 异常</span>
+            <span><i style="color:var(--danger-red)">●</i> 损坏</span>
         </div>
+        <div class="grid-wrapper" id="panelGrid"></div>
     </div>
 
     <div class="column">
-        <div class="card" style="height: 250px;">
-            <div class="card-title">基地实时并网功率波动曲线</div>
-            <div id="chart-container">
-                <canvas id="powerChart"></canvas>
-            </div>
+        <div class="card" style="height:220px">
+            <div class="card-title">并网功率波动曲线 (仿真)</div>
+            <canvas id="powerChart"></canvas>
         </div>
-        <div class="card" style="flex: 1;">
-            <div class="card-title">西北运维流水 (具体时间日志)</div>
-            <div class="log-scroll-area">
-                <table>
-                    <thead>
-                        <tr><th width="40%">日期时间</th><th width="20%">主体</th><th>详情</th></tr>
-                    </thead>
-                    <tbody id="logBody"></tbody>
-                </table>
-            </div>
+        <div class="card" style="flex:1">
+            <div class="card-title">实时运维流水日志</div>
+            <div class="log-area"><table><tbody id="logBody"></tbody></table></div>
         </div>
     </div>
 </main>
 
 <script>
-    // --- [修改] 配置双人 SendKey 数组 ---
-    const KEYS = [
-        'SCT316557Te9lbWvEB1wXbnOG91YgQKlFH', // 第一负责人 (你)
-        'SCT316562TrO4WoFFGxdxQWbQ89I9hTFHJ'  // 第二负责人 (组员)
-    ];
+    // --- 配置区 ---
+    const AMAP_KEY = '16b326717f33f898a349af7d93b703d9';
+    const MQTT_BROKER = 'wss://broker.emqx.io:8084/mqtt';
+    const TOPIC = "testtopic/status";
+    const KEYS = ['SCT316557Te9lbWvEB1wXbnOG91YgQKlFH', 'SCT316562TrO4WoFFGxdxQWbQ89I9hTFHJ'];
 
-    const logBody = document.getElementById('logBody');
-    const clock = document.getElementById('clock');
-    const panelGrid = document.getElementById('panelGrid');
-    const alertPopup = document.getElementById('alert-popup');
-    const totalPowerDisplay = document.getElementById('total-power');
-
+    let globalRad = 0; 
     let powerChart;
-    const powerHistory = [];
-    const labelsHistory = [];
-    let globalBasePower = 420;
+    const historyData = [];
+    const historyLabels = [];
 
-    function getFullDateTime() {
-        const now = new Date();
-        return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${now.toTimeString().split(' ')[0]}`;
-    }
-    setInterval(() => { clock.innerText = getFullDateTime(); }, 1000);
-
-    // --- [修改] 多人微信推送核心函数 ---
-    async function sendWechatToAll(id, statusDesc, pwr) {
-        const title = encodeURIComponent(`🚨 [PV-OS双人告警] 面板损坏: #${id}`);
-        const content = encodeURIComponent(`### ⚠️ 板块物理损坏告警 (多员联动)\n\n**故障编号**：${id}\n**故障诊断**：${statusDesc}\n**实时功率**：${pwr}W\n**同步时间**：${getFullDateTime()}\n\n**运维说明**：\n> 此消息已同步推送给 2 位组员。请确认响应情况，携带检修工具前往现场。`);
-        
-        // 使用 map 创建所有请求的 Promise
-        const requests = KEYS.map(key => 
-            fetch(`https://sctapi.ftqq.com/${key}.send?title=${title}&desp=${content}`, { mode: 'no-cors' })
-        );
-
-        try {
-            await Promise.all(requests);
-            addLog('系统', `[微信推送] 告警已同步发送至运维小组(2人)。`);
-        } catch(e) {
-            addLog('系统', `[错误] 部分推送请求失败。`);
-        }
-    }
-
-    // 获取高德天气
-    async function fetchWeather() {
-        const key = '16b326717f33f898a349af7d93b703d9';
-        try {
-            const res = await fetch(`https://restapi.amap.com/v3/weather/weatherInfo?city=620900&key=${key}`);
-            const data = await res.json();
-            if(data.lives) {
-                const live = data.lives[0];
-                document.getElementById('weather-city').innerText = `西北站：${live.city}`;
-                document.getElementById('weather-cond').innerText = live.weather;
-                document.getElementById('weather-temp').innerText = live.temperature + "°C";
-                document.getElementById('weather-hum').innerText = live.humidity;
-                const tips = document.getElementById('weather-tips');
-                tips.innerText = live.weather.includes('尘') ? "🚨 扬沙警报：履带清扫车转入高频清扫模式。" : "✅ 气象良好：建议执行高清无人机巡检。";
-                addLog('系统', `成功同步${live.city}天气数据。`);
-            }
-        } catch(e) {}
-    }
-
-    async function fetchSolarRadiation() {
-        try {
-            const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=39.74&longitude=98.50&current=shortwave_radiation');
-            const data = await res.json();
-            const radiation = data.current.shortwave_radiation; 
-            globalBasePower = Math.max(10, radiation * 0.45); 
-            addLog('能源局', `同步实时辐射强度：${radiation} W/m²`);
-            updateAllPanelsPower(); 
-        } catch(e) {}
-    }
-
-    function updateAllPanelsPower() {
-        document.querySelectorAll('.panel.p-normal').forEach(p => {
-            const randomVar = Math.random() * 10 - 5; 
-            const newP = Math.floor(globalBasePower + randomVar);
-            p.querySelector('.p-val').innerText = newP + 'W';
-        });
-        updateTotal();
-    }
-
-    function initChart() {
-        const ctx = document.getElementById('powerChart').getContext('2d');
-        powerChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labelsHistory,
-                datasets: [{
-                    label: '实时功率 (kW)',
-                    data: powerHistory,
-                    borderColor: '#00f2ff',
-                    backgroundColor: 'rgba(0, 242, 255, 0.1)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: { beginAtZero: false, grid: { color: 'rgba(255,255,255,0.05)' } },
-                    x: { display: false }
-                },
-                plugins: { legend: { display: false } }
-            }
-        });
-    }
-
-    // 板块初始化
+    // --- 初始化 UI ---
     for (let i = 1; i <= 100; i++) {
         const p = document.createElement('div');
         const id = 'P-' + String(i).padStart(3, '0');
-        let power, status;
-
-        if (i === 15 || i === 88) { power = Math.floor(Math.random()*40); status = 'p-break'; }
-        else if (i % 12 === 0) { power = Math.floor(Math.random()*150 + 50); status = 'p-low'; }
-        else if (i % 7 === 0) { power = Math.floor(Math.random()*150 + 200); status = 'p-dust'; }
-        else { power = Math.floor(globalBasePower + (Math.random()*10 - 5)); status = 'p-normal'; }
-
-        p.className = `panel ${status}`;
-        p.innerHTML = `<span>${id}</span><span class="p-val">${power}W</span>`;
-        p.onclick = () => handleAction(id, status, power, p);
+        p.className = 'panel p-normal';
+        p.id = id;
+        p.innerHTML = `<span>${id}</span><span class="p-val">--W</span>`;
         panelGrid.appendChild(p);
-    }
-
-    function handleAction(id, status, pwr, el) {
-        if (status === 'p-normal') {
-            addLog('巡检', `例行抽检板块 ${id}，状态健康。`);
-            el.style.borderColor = "#fff";
-            setTimeout(() => el.style.borderColor = "var(--primary-blue)", 300);
-            return;
-        }
-
-        if (status === 'p-dust') {
-            document.getElementById('bot-box').classList.add('working');
-            document.getElementById('bot-status').innerText = `履带车作业: ${id}`;
-            addLog('履带车', `开始清扫积灰板块 ${id}`);
-            setTimeout(() => {
-                const newP = Math.floor(globalBasePower + 12);
-                el.className = 'panel p-normal';
-                el.querySelector('.p-val').innerText = newP + 'W';
-                document.getElementById('bot-box').classList.remove('working');
-                document.getElementById('bot-status').innerText = '基站待命';
-                addLog('系统', `清扫完毕，${id} 功率恢复正常。`);
-                updateTotal();
-            }, 1800);
-        } else if (status === 'p-low') {
-            addLog('无人机', `可见光详查 ${id}：推断为局部阴影遮挡。`);
-        } else if (status === 'p-break') {
-            alertPopup.innerHTML = `🚨 <b>硬件严重损坏告警</b><br>编号：#${id}<br>诊断：<b>物理碎裂 / 汇流端烧毁</b><br><span style="font-size:12px; color:#ffdada;">[双人小组微信推送已触发]</span>`;
-            alertPopup.style.display = 'block';
-            
-            // --- [触发] 给两个负责人都发微信 ---
-            sendWechatToAll(id, '物理碎裂 / 汇流端烧毁', pwr);
-            
-            addLog('警报', `[严重故障] 板块 ${id} 功率异常，需手动更换。`);
-            setTimeout(() => alertPopup.style.display='none', 6000);
-        }
-    }
-
-    function updateTotal() {
-        let total = 0;
-        document.querySelectorAll('.p-val').forEach(v => total += parseInt(v.innerText));
-        const finalKW = (total / 1000).toFixed(2);
-        totalPowerDisplay.innerText = finalKW + " kW";
-        
-        const timeLabel = new Date().toLocaleTimeString();
-        labelsHistory.push(timeLabel);
-        powerHistory.push(finalKW);
-        if(labelsHistory.length > 20) { labelsHistory.shift(); powerHistory.shift(); }
-        if(powerChart) powerChart.update();
     }
 
     function addLog(obj, msg) {
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${getFullDateTime()}</td><td style="color:var(--primary-blue)">${obj}</td><td>${msg}</td>`;
+        tr.innerHTML = `<td style="color:#718096; width:70px">${new Date().toLocaleTimeString()}</td><td style="color:var(--primary-blue); width:50px">${obj}</td><td>${msg}</td>`;
         logBody.insertBefore(tr, logBody.firstChild);
     }
 
+    // --- 图表初始化 ---
+    function initChart() {
+        const ctx = document.getElementById('powerChart').getContext('2d');
+        powerChart = new Chart(ctx, {
+            type: 'line',
+            data: { labels: historyLabels, datasets: [{ label: '功率 kW', data: historyData, borderColor: '#00f2ff', tension: 0.4, fill: true, backgroundColor: 'rgba(0,242,255,0.05)' }] },
+            options: { responsive: true, maintainAspectRatio: false, scales: { x: { display: false }, y: { grid: { color: 'rgba(255,255,255,0.05)' } } }, plugins: { legend: { display: false } } }
+        });
+    }
+
+    // --- 联网数据逻辑 ---
+    async function fetchWeather() {
+        try {
+            const res = await fetch(`https://restapi.amap.com/v3/weather/weatherInfo?city=620900&key=${AMAP_KEY}`);
+            const data = await res.json();
+            if(data.lives) {
+                const live = data.lives[0];
+                document.getElementById('w-city').innerText = `酒泉站：${live.city}`;
+                document.getElementById('w-cond').innerText = live.weather;
+                document.getElementById('w-temp').innerText = live.temperature + "°C";
+                document.getElementById('w-hum').innerText = live.humidity;
+                document.getElementById('w-tips').innerText = live.weather.includes('尘') ? "🚨 监测到扬沙：系统转入强化清扫模式。" : "✅ 气象良好：建议执行无人机精细化巡检。";
+            }
+            // 辐射 API
+            const rRes = await fetch('https://api.open-meteo.com/v1/forecast?latitude=39.74&longitude=98.50&current=shortwave_radiation');
+            const rData = await rRes.json();
+            globalRad = rData.current.shortwave_radiation;
+            document.getElementById('rad').innerText = globalRad;
+            updatePowerVisuals();
+        } catch(e) { console.error("数据源同步失败"); }
+    }
+
+    function updatePowerVisuals() {
+        let totalW = 0;
+        document.querySelectorAll('.panel').forEach(el => {
+            let p = 0;
+            if(el.classList.contains('p-normal')) p = globalRad * 0.45 + (Math.random()*6-3);
+            else if(el.classList.contains('p-dust')) p = globalRad * 0.3;
+            else if(el.classList.contains('p-low')) p = globalRad * 0.15;
+            else p = Math.random()*5;
+
+            p = Math.max(0, p);
+            el.querySelector('.p-val').innerText = Math.floor(p) + 'W';
+            totalW += p;
+        });
+        const kw = (totalW/1000).toFixed(2);
+        document.getElementById('total-p').innerText = kw + " kW";
+        document.getElementById('sim-p').innerText = kw;
+        
+        // 更新图表
+        historyLabels.push(""); historyData.push(kw);
+        if(historyData.length > 20) { historyData.shift(); historyLabels.shift(); }
+        powerChart.update();
+    }
+
+    // --- MQTT 通信逻辑 ---
+    const client = mqtt.connect(MQTT_BROKER);
+    client.on('connect', () => {
+        addLog('系统', 'MQTT 链路已激活，接收机载端实时诊断...');
+        client.subscribe(TOPIC);
+    });
+
+    client.on('message', (topic, message) => {
+        const msg = message.toString();
+        addLog('无人机', `实时检测报告：${msg}`);
+        // 演示用固定 ID
+        handleCommand("P-015", msg);
+    });
+
+    function handleCommand(id, status) {
+        const el = document.getElementById(id);
+        if(!el) return;
+
+        if(status === 'dirty') {
+            el.className = 'panel p-dust';
+            document.getElementById('bot-msg').innerText = `前往清扫 ${id}`;
+            addLog('调度', `已指派 BOT-A1 前往修复积灰板块 ${id}`);
+        } else if(status === 'cracked') {
+            el.className = 'panel p-break';
+            triggerAlert(id);
+        } else if(status === 'panel') {
+            el.className = 'panel p-normal';
+            addLog('系统', `板块 ${id} 恢复健康状态`);
+        }
+    }
+
+    function triggerAlert(id) {
+        const pop = document.getElementById('alert-popup');
+        pop.innerHTML = `🚨 <b>检测到严重物理损坏 (#${id})</b><br>微信双人联动告警已下发至运维组员。`;
+        pop.style.display = 'block';
+        setTimeout(() => pop.style.display = 'none', 6000);
+        
+        KEYS.forEach(key => {
+            fetch(`https://sctapi.ftqq.com/${key}.send?title=损坏告警&desp=板块${id}检测到碎裂`, { mode:'no-cors' });
+        });
+    }
+
+    // 启动
     initChart();
     fetchWeather();
-    fetchSolarRadiation(); 
-    setInterval(fetchSolarRadiation, 30000); 
-    setInterval(updateTotal, 3000); 
+    setInterval(fetchWeather, 30000);
+    setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleString(); }, 1000);
+
 </script>
 </body>
 </html>
