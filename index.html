@@ -20,11 +20,9 @@
         .card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 15px; display: flex; flex-direction: column; overflow: hidden; }
         .card-title { color: var(--primary-blue); font-size: 15px; font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
         
-        /* 气象卡片样式 */
         .weather-box { background: linear-gradient(135deg, #1e293b, #0f172a); padding: 12px; border-radius: 8px; border: 1px solid #334155; }
         .temp-large { font-size: 32px; color: var(--primary-blue); font-weight: bold; }
 
-        /* 面板矩阵样式 */
         .grid-wrapper { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; overflow-y: auto; }
         .panel { aspect-ratio: 1; border-radius: 4px; font-size: 9px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; background: rgba(255,255,255,0.05); border: 1px solid #2d3748; transition: 0.2s; }
         .p-normal { border-color: var(--primary-blue); color: var(--primary-blue); }
@@ -34,7 +32,6 @@
         
         @keyframes pulse-blink { 50% { background: rgba(231, 76, 60, 0.4); border-color: #fff; } }
 
-        /* 底部日志和图表 */
         .log-area { flex: 1; overflow-y: auto; font-size: 11px; }
         table { width: 100%; border-collapse: collapse; }
         td { padding: 6px; border-bottom: 1px solid rgba(255,255,255,0.02); }
@@ -74,10 +71,10 @@
             </div>
             <div style="padding:10px; background:rgba(155,89,182,0.05); border-radius:6px">
                 <b>UAV-X4 巡检无人机</b><br>
-                状态：<span style="color:var(--primary-blue)">AI巡视中...</span>
+                状态：<span style="color:var(--primary-blue)">机载侧 NCNN 算子边缘推理中</span>
             </div>
             <div style="margin-top:auto; padding:12px; background:rgba(46,204,113,0.1); border-radius:8px">
-                <div style="font-size:11px; color:#94a3b8">全场实时总功率</div>
+                <div style="font-size:11px; color:#94a3b8">全场实时总功率 (由气象站数据驱动)</div>
                 <div id="total-p" style="font-size:24px; font-weight:bold; color:var(--accent-green)">0.00 kW</div>
             </div>
         </div>
@@ -109,6 +106,7 @@
 <script>
     // --- 配置区 ---
     const AMAP_KEY = '16b326717f33f898a349af7d93b703d9';
+    // 关键修复：协议 ws -> wss, 端口 8083 -> 8084
     const MQTT_BROKER = 'wss://broker.emqx.io:8084/mqtt';
     const TOPIC = "testtopic/status";
     const KEYS = ['SCT316557Te9lbWvEB1wXbnOG91YgQKlFH', 'SCT316562TrO4WoFFGxdxQWbQ89I9hTFHJ'];
@@ -157,11 +155,9 @@
                 document.getElementById('w-hum').innerText = live.humidity;
                 document.getElementById('w-tips').innerText = live.weather.includes('尘') ? "🚨 监测到扬沙：系统转入强化清扫模式。" : "✅ 气象良好：建议执行无人机精细化巡检。";
             }
-            // 辐射 API
             const rRes = await fetch('https://api.open-meteo.com/v1/forecast?latitude=39.74&longitude=98.50&current=shortwave_radiation');
             const rData = await rRes.json();
             globalRad = rData.current.shortwave_radiation;
-            document.getElementById('rad').innerText = globalRad;
             updatePowerVisuals();
         } catch(e) { console.error("数据源同步失败"); }
     }
@@ -181,25 +177,27 @@
         });
         const kw = (totalW/1000).toFixed(2);
         document.getElementById('total-p').innerText = kw + " kW";
-        document.getElementById('sim-p').innerText = kw;
         
-        // 更新图表
         historyLabels.push(""); historyData.push(kw);
         if(historyData.length > 20) { historyData.shift(); historyLabels.shift(); }
         powerChart.update();
     }
 
-    // --- MQTT 通信逻辑 ---
+    // --- MQTT 通信逻辑 (WSS 修复版) ---
     const client = mqtt.connect(MQTT_BROKER);
     client.on('connect', () => {
-        addLog('系统', 'MQTT 链路已激活，接收机载端实时诊断...');
+        addLog('系统', 'MQTT 安全链路(WSS)已激活，接收实时报告...');
         client.subscribe(TOPIC);
+    });
+
+    client.on('error', (err) => {
+        console.error('MQTT连接错误:', err);
+        addLog('系统', 'MQTT 链路连接失败，检查网络...');
     });
 
     client.on('message', (topic, message) => {
         const msg = message.toString();
         addLog('无人机', `实时检测报告：${msg}`);
-        // 演示用固定 ID
         handleCommand("P-015", msg);
     });
 
@@ -235,7 +233,14 @@
     initChart();
     fetchWeather();
     setInterval(fetchWeather, 30000);
-    setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleString(); }, 1000);
+    
+    // 更新时间显示逻辑：年月日 时分秒
+    setInterval(() => { 
+        const now = new Date();
+        const dateStr = now.getFullYear() + '-' + (now.getMonth()+1).toString().padStart(2,'0') + '-' + now.getDate().toString().padStart(2,'0');
+        const timeStr = now.toLocaleTimeString();
+        document.getElementById('clock').innerText = dateStr + ' ' + timeStr; 
+    }, 1000);
 
 </script>
 </body>
